@@ -1,0 +1,152 @@
+
+Activity Monitoring
+========================================================
+### Reproducible Research Assignment One
+The purpose of this assignment is to assess monitoring device activity and to produce a graphical presentation.   
+
+### Libraries used for data processing.
+```{r}
+library(stats)
+library(plyr)
+library(dplyr)
+library(lattice)
+library(zoo)
+```
+### Data is read into R.
+```{r}
+act <- read.csv("repActivity.csv")
+```
+### Data processing for histogram of steps taken per day and table with mean and median steps per day.
+The following processing steps were used:   
+1.  Number of NAs determined to be **2304**.    
+2.  NAs were removed from data set.    
+3.  Data was selected, grouped, and summarized in a tidy format.   
+## Histogram I.  Total Steps Per Day After NA Removal.                     
+#### Prepare data for histogram and create histogram.
+```{r fig.width=9, fig.height=7}
+length(which(is.na(act)))
+act1 <- na.omit(act)
+actHistogram <- act1 %.% 
+  select(steps, date) %.%
+  group_by(date) %.%
+  summarise(round(mean(steps), 2), sum(steps), median(steps))
+names(actHistogram)[1]<-"Date"
+names(actHistogram)[2]<-"Mean"
+names(actHistogram)[3]<-"Sum"
+names(actHistogram)[4]<-"Median"
+hist(actHistogram$Sum, xlab = "Number of Steps per Day", main = "Total Steps Per Day", col = "gray")
+```
+## Table
+#### Prepare and print table with date, mean and median.
+```{r}
+actTable <- act1 %.% 
+  select(steps, date) %.%
+  group_by(date) %.%
+  summarise(round(mean(steps), 2), median(steps))
+names(actTable)[1]<-"Date"
+names(actTable)[2]<-"Mean"
+names(actTable)[3]<-"Median"
+print(actTable)
+```
+### Data processing for plot of average steps taken per day averaged across all days.
+Data was selected, grouped by interval, and summarized in a tidy format.
+## Plot I.  Average Daily Activity Pattern After NA Removal.                     
+#### Prepare data for plot and create plot.
+```{r fig.width=9, fig.height=8}
+actPlot <- act1 %.% 
+  select(steps, interval) %.%
+  group_by(interval) %.%
+  summarise(mean(steps), sum(steps), median(steps), max(steps))
+names(actPlot)[2]<-"meanSteps"
+names(actPlot)[3]<-"sumSteps"
+names(actPlot)[4]<-"medianSteps"
+plot(actPlot$meanSteps~actPlot$interval, type = "l", lwd = 2, 
+       col = "steelblue", xlab = "Time Interval (min)", 
+       ylab = "Average Number of Steps Taken",
+       main = "Average Daily Activity Pattern")
+abline(v=835, col="red", lwd = 2)
+```
+#### As shown in Plot 1 and in the below chunk, the maximum number of steps is **206.17** at interval **835** (shown in red).
+```{r}
+maX <- actPlot %.% select(interval, meanSteps) %.% filter(meanSteps == max(meanSteps)); round(maX,2)
+```
+
+### Data processing of the activity data to incorporate values for missing values.                 
+As shown above for generating a histogram, there are **2304** NAs in the data set.                    
+### Strategy for filling in the missing values.                 
+1.  Local values were used to fill in all NAs except for the first 288 from October 1, 2012.      
+2.  The first 288 values were filled in with data from October 15, 2012, which appeared to have typical Monday activity.    
+3.  The appropriate data was extracted, and combined.    
+4.  Data was transformed into numbers and day of the week levels.   
+5.  Finally, data was grouped, summarized and plotted.   
+## Imputted missing values.  
+```{r}
+b <- na.locf(act)
+c <- b[289:17568,]
+p <- act[4033:4320,]
+p1 <- select(p, steps)
+q <- b[1:288,]
+r <- select(q, date, interval)
+s <- cbind(p1,r)
+t <- rbind(s, c)
+t1 <- transform(t, steps = as.numeric(steps), 
+                interval = as.numeric(interval),
+                date = as.factor(as.Date(date)))
+u <- transform(t, steps = as.numeric(steps), 
+          interval = as.numeric(interval),
+          date = as.factor(weekdays(as.Date(date))))
+```
+## Histogram II.  Total Steps Per Day After Imputing 2304 Missing Values.
+#### Prepare data for histogram II and create histogram II.   
+Overall, histogram II is similar to histogram I, except there is greater activity between 1-5000 steps.  This may be a result of the how the na.locf function uses local values to fill in missing values.  This scheme of filling in data was chosen because it seems that it might be more representative of the data.  However, other schemes may give different results.  Without further analysis it is unclear what the optimal procedure is.
+```{r}
+actHistogramII <- t1 %.% 
+  select(steps, date) %.%
+  group_by(date) %.%
+  summarise(round(mean(steps), 2), sum(steps), median(steps))
+names(actHistogramII)[1]<-"Date"
+names(actHistogramII)[2]<-"Mean"
+names(actHistogramII)[3]<-"Sum"
+names(actHistogramII)[4]<-"Median"
+hist(actHistogramII$Sum, xlab = "Number of Steps Per Day", main = "Total Steps Per Day", col = "gray")
+```
+## Plot II.  Average Daily Activity Pattern After Imputing 2304 Missing Values.
+```{r fig.width=9, fig.height=8}
+v <- u %.% 
+  group_by(interval) %.%
+  summarise(round(mean(steps), 2), sum(steps))
+names(v)[2]<-"meanSteps"
+names(v)[3]<-"sumSteps"
+plot(v$meanSteps~v$interval, type = "l", lwd = 2, 
+       col = "blue", xlab = "Time Interval (min)", 
+       ylab = "Average Number of Steps Taken",
+       main = "Average Daily Activity Pattern")
+```
+
+### Data processing for plotting weekday and weekend activity data.      
+1.  The Monday-Friday levels were converted to weekday.        
+2.  The Saturday and Sunday levels were converted to weekend.             
+3.  Two plots were generated comparing weekend and weekday activities.                                              
+
+## Plot III.  Comparison of Weekend and Weekday Average Daily Activity Pattern After Imputing 2304 Missing Values.    
+As shown in plot III, there is much greater activity on weekdays than weekends.
+```{r fig.width=9, fig.height=8}
+levels(u$date) <- c("weekday","weekday",
+                    "weekend","weekend",
+                    "weekday","weekday","weekday")
+v <- u %.% 
+  group_by(interval, date) %.%
+  summarise(round(mean(steps), 2), sum(steps))
+names(v)[3]<-"meanSteps"
+names(v)[4]<-"sumSteps"
+xyplot(sumSteps~interval|date, 
+       type="l", layout=c(1,2), data=v,
+       xlab = "Interval", 
+       ylab = "Number of steps", lwd = 2)
+
+```
+Create markdown from R markdown file.
+```{r}
+knit(input="PA1_template.Rmd", output="PA1_template.md")
+```
+
